@@ -1,10 +1,14 @@
 package com.myhome.remote
 
 import android.Manifest
+import android.content.ActivityNotFoundException
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.os.SystemClock
+import android.net.Uri
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -23,13 +27,16 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -86,6 +93,7 @@ private fun RemoteApp(model: RemoteViewModel) {
     val context = LocalContext.current
     var wallpaperShown by remember { mutableStateOf(false) }
     var settingsOpen by remember { mutableStateOf(false) }
+    var remoteShown by rememberSaveable { mutableStateOf(false) }
     val imageLoader = remember(context) {
         ImageLoader.Builder(context).components {
             add(SvgDecoder.Factory())
@@ -115,38 +123,63 @@ private fun RemoteApp(model: RemoteViewModel) {
         state.message?.let { snackbar.showSnackbar(it); model.clearMessage() }
     }
 
+    BackHandler(enabled = remoteShown) { remoteShown = false }
+
     MaterialTheme(colorScheme = colors) {
         Scaffold(
             containerColor = colors.background,
             snackbarHost = { SnackbarHost(snackbar, modifier = Modifier.navigationBarsPadding()) },
         ) { inset ->
-            Column(
-                Modifier.fillMaxSize().padding(inset)
-                    .verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp),
-            ) {
-                Header(state, model, onSettings = { settingsOpen = true })
-                Dock(state, model, imageLoader)
-                RockyButton(
-                    mode = state.rockyMode,
-                    onPressStart = {
-                        if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
-                            model.rockyPressStart()
-                        } else microphonePermission.launch(Manifest.permission.RECORD_AUDIO)
-                    },
-                    onPressEnd = model::rockyPressEnd,
-                    onCancel = model::cancelRocky,
-                )
-                BoxWithConstraints(Modifier.fillMaxWidth()) {
-                    DirectionPad(model, state.darkTheme, if (maxWidth <= 318.dp) 230.dp else 260.dp)
+            if (remoteShown) {
+                Column(
+                    Modifier.fillMaxSize().padding(inset)
+                        .verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                ) {
+                    Header(state, model, onSettings = { settingsOpen = true }, onHome = { remoteShown = false })
+                    Dock(state, model, imageLoader)
+                    RockyButton(
+                        mode = state.rockyMode,
+                        onPressStart = {
+                            if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                                model.rockyPressStart()
+                            } else microphonePermission.launch(Manifest.permission.RECORD_AUDIO)
+                        },
+                        onPressEnd = model::rockyPressEnd,
+                        onCancel = model::cancelRocky,
+                    )
+                    BoxWithConstraints(Modifier.fillMaxWidth()) {
+                        DirectionPad(model, state.darkTheme, if (maxWidth <= 318.dp) 230.dp else 260.dp)
+                    }
+                    ActionGrid(state, model, onWallpaperClick = { wallpaperShown = true })
+                    if (state.keyboardShown) KeyboardPanel(state, model)
+                    Text(
+                        "Served by Lenovo · ${state.serverUrl.removePrefix("http://").removePrefix("https://")}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = colors.onSurface.copy(alpha = .55f),
+                        modifier = Modifier.align(Alignment.CenterHorizontally),
+                    )
                 }
-                ActionGrid(state, model, onWallpaperClick = { wallpaperShown = true })
-                if (state.keyboardShown) KeyboardPanel(state, model)
-                Text(
-                    "Served by Lenovo · ${state.serverUrl.removePrefix("http://").removePrefix("https://")}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = colors.onSurface.copy(alpha = .55f),
-                    modifier = Modifier.align(Alignment.CenterHorizontally),
+            } else {
+                HomeScreen(
+                    darkTheme = state.darkTheme,
+                    onToggleTheme = { model.setDarkTheme(!state.darkTheme) },
+                    onShareHome = {
+                        val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                            type = "text/plain"
+                            putExtra(Intent.EXTRA_TEXT, BuildConfig.HOME_PAGE_URL)
+                        }
+                        context.startActivity(Intent.createChooser(shareIntent, "Share my.home"))
+                    },
+                    onOpenRemote = { remoteShown = true },
+                    onOpenService = { url ->
+                        try {
+                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                        } catch (_: ActivityNotFoundException) {
+                            model.showMessage("No browser is available to open this service")
+                        }
+                    },
+                    modifier = Modifier.fillMaxSize().padding(inset),
                 )
             }
         }
@@ -161,11 +194,16 @@ private fun RemoteApp(model: RemoteViewModel) {
 }
 
 @Composable
-private fun Header(state: RemoteUiState, model: RemoteViewModel, onSettings: () -> Unit) {
+private fun Header(state: RemoteUiState, model: RemoteViewModel, onSettings: () -> Unit, onHome: () -> Unit) {
     val transition = rememberInfiniteTransition(label = "reconnect rotation")
     val rotation by transition.animateFloat(0f, 360f, infiniteRepeatable(tween(800), RepeatMode.Restart), label = "reconnect angle")
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-        Text("#63 Remote", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = onHome, modifier = Modifier.size(36.dp)) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back to home")
+            }
+            Text("#63 Remote", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+        }
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             Box(Modifier.size(8.dp).background(
                 when (state.isOnline) { true -> Color(0xFF1FA35C); false -> Color(0xFFD5443C); null -> Color(0xFFB9BDC6) }, CircleShape,
@@ -205,15 +243,18 @@ private fun Dock(state: RemoteUiState, model: RemoteViewModel, imageLoader: Imag
                     Box(contentAlignment = Alignment.Center) {
                         if (iconUrl != null) {
                             AsyncImage(
-                                model = iconUrl, contentDescription = null, imageLoader = imageLoader,
+                                model = iconUrl, contentDescription = tile.name, imageLoader = imageLoader,
                                 contentScale = if (fit == "cover") ContentScale.Crop else ContentScale.Fit,
                                 modifier = if (fit == "cover") Modifier.fillMaxSize() else Modifier.fillMaxSize(.56f),
                             )
-                        } else Text(tile.name.take(2).uppercase(), color = Color.White, fontWeight = FontWeight.SemiBold)
+                        } else Icon(
+                            Icons.Default.Apps,
+                            contentDescription = tile.name,
+                            tint = Color.White,
+                            modifier = Modifier.size(28.dp),
+                        )
                     }
                 }
-                Spacer(Modifier.height(3.dp))
-                Text(tile.name, style = MaterialTheme.typography.labelSmall, maxLines = 1)
             }
         }
     }

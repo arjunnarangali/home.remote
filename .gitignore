@@ -33,3 +33,6 @@ signing.properties
 # Operating system files
 .DS_Store
 Thumbs.db
+
+# Environment files
+*env*

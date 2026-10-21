@@ -9,7 +9,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.VolumeDown
-import androidx.compose.material.icons.automirrored.filled.VolumeMute
+import androidx.compose.material.icons.automirrored.filled.VolumeOff
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
@@ -68,7 +68,7 @@ internal fun DirectionPad(model: RemoteViewModel, dark: Boolean, padSize: Dp) {
         Surface(shape = CircleShape, color = MaterialTheme.colorScheme.surface, shadowElevation = 10.dp, modifier = Modifier.width(258.dp).height(64.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 HoldButton(Icons.AutoMirrored.Filled.VolumeDown, "Volume down", { model.sendKey(KeyCodes.getValue("voldown")) }, Modifier.weight(1f))
-                IconButton(onClick = { model.sendKey(KeyCodes.getValue("mute")) }, modifier = Modifier.weight(1f)) { Icon(Icons.AutoMirrored.Filled.VolumeMute, "Mute") }
+                IconButton(onClick = { model.sendKey(KeyCodes.getValue("mute")) }, modifier = Modifier.weight(1f)) { Icon(Icons.AutoMirrored.Filled.VolumeOff, "Mute") }
                 HoldButton(Icons.AutoMirrored.Filled.VolumeUp, "Volume up", { model.sendKey(KeyCodes.getValue("volup")) }, Modifier.weight(1f))
             }
         }
@@ -129,12 +129,11 @@ internal fun ActionGrid(state: RemoteUiState, model: RemoteViewModel, onWallpape
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Box {
-                            Icon(action.icon, null, Modifier.size(20.dp))
+                            Icon(action.icon, action.label, Modifier.size(20.dp))
                             if (action.label == "Wallpaper" && (state.wallpaper.running || state.wallpaper.count != null)) {
                                 Text(state.wallpaper.badge, modifier = Modifier.align(Alignment.TopEnd).offset(x = 30.dp, y = (-6).dp), color = Violet, style = MaterialTheme.typography.labelSmall)
                             }
                         }
-                        Text(action.label, style = MaterialTheme.typography.labelMedium)
                     }
                 }
             }

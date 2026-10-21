@@ -1,8 +1,25 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
 }
+
+val homeEnvironment = Properties().apply {
+    val file = rootProject.file("env/home.properties")
+    require(file.isFile) { "Missing environment config: ${file.path}" }
+    file.inputStream().use { load(it) }
+}
+
+fun environmentValue(name: String): String {
+    val value = providers.gradleProperty(name).orNull ?: homeEnvironment.getProperty(name, "")
+    require(value.isNotBlank()) { "Missing $name in env/home.properties or Gradle properties" }
+    return value
+}
+
+fun buildConfigString(value: String): String =
+    "\"${value.replace("\\", "\\\\").replace("\"", "\\\"")}\""
 
 android {
     namespace = "com.myhome.remote"
@@ -12,16 +29,34 @@ android {
         applicationId = "com.myhome.remote"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 5
+        versionName = "1.4"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        buildConfigField("String", "REMOTE_API_URL", buildConfigString(environmentValue("REMOTE_API_URL")))
+        buildConfigField("String", "HOME_PAGE_URL", buildConfigString(environmentValue("HOME_PAGE_URL")))
+        buildConfigField("String", "JELLYFIN_URL", buildConfigString(environmentValue("JELLYFIN_URL")))
+        buildConfigField("String", "MATCHDAY_URL", buildConfigString(environmentValue("MATCHDAY_URL")))
+        buildConfigField("String", "REQUESTS_URL", buildConfigString(environmentValue("REQUESTS_URL")))
+        buildConfigField("String", "LAN_ADDRESS", buildConfigString(environmentValue("LAN_ADDRESS")))
+        buildConfigField("String", "HOME_DNS_NAME", buildConfigString(environmentValue("HOME_DNS_NAME")))
+        buildConfigField("String", "REMOTE_DNS_NAME", buildConfigString(environmentValue("REMOTE_DNS_NAME")))
+    }
+
+    buildTypes {
+        getByName("release") {
+            // Keep local release APKs installable as updates to the app installed from debug builds.
+            signingConfig = signingConfigs.getByName("debug")
+        }
     }
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    buildFeatures { compose = true }
+    buildFeatures {
+        compose = true
+        buildConfig = true
+    }
 }
 
 kotlin {

@@ -36,7 +36,11 @@ The phone and Lenovo TV must initially be connected to the same Wi-Fi network.
 
 ## Configure the Lenovo address
 
-Use the **More options → Server address** menu in the app. The URL must be an origin only (scheme, host and optional port), and is limited to private IP/local DNS addresses. The default is `http://192.168.1.9:6969`.
+Use the **More options → Server address** menu in the app. The URL must be an origin only (scheme, host and optional port), and is limited to private IP/local DNS addresses. The default comes from `REMOTE_API_URL` in `env/home.properties` (currently `http://192.168.1.9:6969`).
+
+## Build environment configuration
+
+Non-secret home deployment URLs and LAN/DNS display values are stored in [`env/home.properties`](env/home.properties) and exposed to the app as generated `BuildConfig` constants. Override individual values for a build with Gradle project properties, for example `./gradlew assembleRelease -PJELLYFIN_URL=http://192.168.1.20:8096`. Do not put credentials or signing secrets in this file; use local Gradle properties or a dedicated secret store for secrets.
 
 The Lenovo service currently uses plain HTTP. Remote commands and Ask Rocky audio are therefore unencrypted while crossing the home LAN; use the app on a trusted Wi-Fi network. Voice recordings are kept in memory only and sent to the Lenovo `/voice` route; they are not saved on the phone.
 

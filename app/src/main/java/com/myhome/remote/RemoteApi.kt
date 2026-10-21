@@ -145,7 +145,7 @@ class RemoteApi(context: Context, private val initialBaseUrl: String = DEFAULT_B
     }
 
     companion object {
-        const val DEFAULT_BASE_URL = "http://192.168.1.9:6969"
+        const val DEFAULT_BASE_URL = BuildConfig.REMOTE_API_URL
         private const val KEY_BASE_URL = "base_url"
     }
 }
