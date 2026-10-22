@@ -29,8 +29,8 @@ android {
         applicationId = "com.myhome.remote"
         minSdk = 26
         targetSdk = 36
-        versionCode = 5
-        versionName = "1.4"
+        versionCode = 8
+        versionName = "1.7"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "REMOTE_API_URL", buildConfigString(environmentValue("REMOTE_API_URL")))
         buildConfigField("String", "HOME_PAGE_URL", buildConfigString(environmentValue("HOME_PAGE_URL")))
@@ -68,6 +68,7 @@ kotlin {
 dependencies {
     val composeBom = platform("androidx.compose:compose-bom:2025.10.00")
     implementation(composeBom)
+    androidTestImplementation(composeBom)
     implementation("androidx.activity:activity-compose:1.13.0")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.9.4")
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.9.4")

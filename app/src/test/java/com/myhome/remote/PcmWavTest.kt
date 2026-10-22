@@ -76,6 +76,11 @@ class PcmWavTest {
         assertThrows(IllegalArgumentException::class.java) { PcmWav.encode(byteArrayOf(1, 2), 0) }
     }
 
+    @Test
+    fun remoteBackUsesAndroidBackKeyCode() {
+        assertEquals(4, KeyCodes["back"])
+    }
+
     private fun littleEndianShort(bytes: ByteArray, offset: Int): Int =
         (bytes[offset].toInt() and 0xff) or ((bytes[offset + 1].toInt() and 0xff) shl 8)
 

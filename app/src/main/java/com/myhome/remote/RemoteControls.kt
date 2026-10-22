@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -27,6 +28,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -112,32 +114,65 @@ internal fun ActionGrid(state: RemoteUiState, model: RemoteViewModel, onWallpape
     actions.chunked(3).forEach { row ->
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             row.forEach { action ->
-                OutlinedButton(
-                    onClick = { if (!action.repeatWhileHeld) action.onClick() },
-                    modifier = Modifier.weight(1f).height(74.dp).then(
-                        if (action.repeatWhileHeld) Modifier.pointerInput(Unit) {
-                            detectTapGestures(onPress = {
-                                action.onClick()
-                                coroutineScope {
-                                    val repeatJob = launch { delay(220); while (true) { action.onClick(); delay(220) } }
-                                    try { tryAwaitRelease() } finally { repeatJob.cancel() }
-                                }
-                            })
-                        } else Modifier
-                    ),
-                    contentPadding = PaddingValues(4.dp),
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Box {
-                            Icon(action.icon, action.label, Modifier.size(20.dp))
-                            if (action.label == "Wallpaper" && (state.wallpaper.running || state.wallpaper.count != null)) {
-                                Text(state.wallpaper.badge, modifier = Modifier.align(Alignment.TopEnd).offset(x = 30.dp, y = (-6).dp), color = Violet, style = MaterialTheme.typography.labelSmall)
-                            }
-                        }
+                if (action.repeatWhileHeld) {
+                    HoldActionChip(action, Modifier.weight(1f))
+                } else {
+                    OutlinedButton(onClick = action.onClick, modifier = Modifier.weight(1f).height(74.dp), contentPadding = PaddingValues(4.dp)) {
+                        ActionContent(action, state)
                     }
                 }
             }
         }
+    }
+}
+
+@Composable
+internal fun HoldActionChip(action: RemoteAction, modifier: Modifier = Modifier) {
+    val currentAction by rememberUpdatedState(action.onClick)
+    var pressed by remember { mutableStateOf(false) }
+    Surface(
+        modifier = modifier.height(74.dp)
+            .pointerInput(Unit) {
+                detectTapGestures(onPress = {
+                    pressed = true
+                    currentAction()
+                    coroutineScope {
+                        val repeatJob = launch { delay(220); while (true) { currentAction(); delay(220) } }
+                        try { tryAwaitRelease() } finally { repeatJob.cancel(); pressed = false }
+                    }
+                })
+            }
+            .semantics {
+                contentDescription = action.label
+                role = Role.Button
+                onClick(label = action.label) {
+                    currentAction()
+                    true
+                }
+            },
+        shape = RoundedCornerShape(18.dp),
+        color = if (pressed) MaterialTheme.colorScheme.surfaceVariant else Color.Transparent,
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+    ) {
+        ActionContent(action, null)
+    }
+}
+
+@Composable
+private fun ActionContent(action: RemoteAction, state: RemoteUiState?) {
+    Column(
+        Modifier.fillMaxSize().padding(4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Box {
+            Icon(action.icon, null, Modifier.size(20.dp))
+            if (action.label == "Wallpaper" && state != null && (state.wallpaper.running || state.wallpaper.count != null)) {
+                Text(state.wallpaper.badge, modifier = Modifier.align(Alignment.TopEnd).offset(x = 30.dp, y = (-6).dp), color = Violet, style = MaterialTheme.typography.labelSmall)
+            }
+        }
+        Spacer(Modifier.height(4.dp))
+        Text(action.label, style = MaterialTheme.typography.labelMedium)
     }
 }
 
