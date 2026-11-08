@@ -38,6 +38,10 @@ The phone and Lenovo TV must initially be connected to the same Wi-Fi network.
 
 Use the **More options → Server address** menu in the app. The URL must be an origin only (scheme, host and optional port), and is limited to private IP/local DNS addresses. The default comes from `REMOTE_API_URL` in `env/home.properties` (currently `http://192.168.1.9:6969`).
 
+## Other remotes
+
+The home screen's **Other remotes** entry scans the local network for `_androidtvremote2._tcp.` service advertisements. Select a TV, enter the 6-character pairing code shown on its screen, then use the Lenovo-style remote controls. The keyboard sends text through Android TV's IME protocol when a text field is focused. Hold the mic tile to stream phone audio to the TV's voice session; tap to listen and tap again to send. If discovery does not list a TV, enter its local IP address on the discovery screen. Android TV Remote v2 identity keys are stored in Android Keystore; the paired TV certificate is pinned by host. Protocol implementation attribution is in [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md). See [`OTHER_REMOTES_PLAN.md`](OTHER_REMOTES_PLAN.md) for scope and verification details.
+
 ## Build environment configuration
 
 Non-secret home deployment URLs and LAN/DNS display values are stored in [`env/home.properties`](env/home.properties) and exposed to the app as generated `BuildConfig` constants. Override individual values for a build with Gradle project properties, for example `./gradlew assembleRelease -PJELLYFIN_URL=http://192.168.1.20:8096`. Do not put credentials or signing secrets in this file; use local Gradle properties or a dedicated secret store for secrets.
@@ -50,6 +54,8 @@ The Lenovo service currently uses plain HTTP. Remote commands and Ask Rocky audi
 - `RemoteControls.kt` / `RemoteDialogs.kt`: touch controls, keyboard, wallpaper and server settings UI.
 - `RemoteViewModel.kt`: UI state, lifecycle-aware polling and command coordination.
 - `RemoteApi.kt`: server protocol models, URL validation and HTTP client.
+- `OtherRemotesScreen.kt`: local Android TV Remote v2 service discovery using Android NSD.
+- `AndroidTvRemoteClient.kt`: Android TV Remote v2 TLS pairing, certificate pinning, session reconnect, and key commands.
 - `PcmAudioRecorder.kt`: permission-checked PCM capture and WAV encoding.
 - Dock logos are loaded from the Lenovo's `/icons/` directory using Coil's OkHttp network module and SVG decoder.
 - The Lenovo launch endpoint resolves Android TV Leanback activities and switches HDMI inputs using encoded TV input IDs. Keep `~/services/tvremote/test_server_launch.py` with the server code and run `python3 -m unittest -v test_server_launch` from that directory after server changes.

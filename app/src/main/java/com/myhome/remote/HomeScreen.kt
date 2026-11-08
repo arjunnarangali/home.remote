@@ -45,14 +45,16 @@ import androidx.compose.ui.unit.sp
 private data class HomeService(
     val name: String,
     val description: String,
+    val opensOtherRemotes: Boolean = false,
     val url: String? = null,
 )
 
 private val homeServices = listOf(
-    HomeService("Remote", "Drives the TV — buttons, keyboard, launches apps"),
-    HomeService("Jellyfin", "Web app — everything, on any screen", BuildConfig.JELLYFIN_URL),
-    HomeService("Matchday", "Live football & F1 — acestream paste-and-play", BuildConfig.MATCHDAY_URL),
-    HomeService("Requests", "Ask for movies & shows — works away from home too", BuildConfig.REQUESTS_URL),
+    HomeService("Home remote", "Control the Lenovo in the corner"),
+    HomeService("Other remote", "Find Android TV and Google TV devices on this Wi-Fi", opensOtherRemotes = true),
+    HomeService("Jellyfin", "Web app — everything, on any screen", url = BuildConfig.JELLYFIN_URL),
+    HomeService("Matchday", "Live football & F1 — acestream paste-and-play", url = BuildConfig.MATCHDAY_URL),
+    HomeService("Requests", "Ask for movies & shows — works away from home too", url = BuildConfig.REQUESTS_URL),
 )
 
 @Composable
@@ -61,6 +63,7 @@ internal fun HomeScreen(
     onToggleTheme: () -> Unit,
     onShareHome: () -> Unit,
     onOpenRemote: () -> Unit,
+    onOpenOtherRemotes: () -> Unit,
     onOpenService: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -124,7 +127,11 @@ internal fun HomeScreen(
                 homeServices.forEach { service ->
                     Surface(
                         onClick = {
-                            if (service.url == null) onOpenRemote() else onOpenService(service.url)
+                            when {
+                                service.url != null -> onOpenService(service.url)
+                                service.opensOtherRemotes -> onOpenOtherRemotes()
+                                else -> onOpenRemote()
+                            }
                         },
                         shape = RoundedCornerShape(8.dp),
                         color = Color.Transparent,

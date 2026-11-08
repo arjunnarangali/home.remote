@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Keyboard
 import androidx.compose.material.icons.filled.PowerSettingsNew
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.SettingsInputHdmi
 import androidx.compose.material.icons.filled.Wallpaper
 import androidx.compose.material3.*
@@ -26,6 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
+import android.os.SystemClock
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onClick
@@ -47,32 +49,109 @@ internal data class RemoteAction(
 )
 
 @Composable
-internal fun DirectionPad(model: RemoteViewModel, dark: Boolean, padSize: Dp) {
-    Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
+internal fun DirectionPad(onSendKey: (Int) -> Unit, dark: Boolean, padSize: Dp) {
+    Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(32.dp)) {
         Surface(shape = CircleShape, color = MaterialTheme.colorScheme.surface, shadowElevation = 12.dp, modifier = Modifier.size(padSize)) {
             Column {
                 Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
-                    Spacer(Modifier.weight(1f)); HoldButton(Icons.Default.ArrowUpward, "Direction up", { model.sendKey(KeyCodes.getValue("up")) }, Modifier.weight(1f)); Spacer(Modifier.weight(1f))
+                    Spacer(Modifier.weight(1f)); HoldButton(Icons.Default.ArrowUpward, "Direction up", { onSendKey(KeyCodes.getValue("up")) }, Modifier.weight(1f)); Spacer(Modifier.weight(1f))
                 }
                 Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
-                    HoldButton(Icons.AutoMirrored.Filled.ArrowBack, "Direction left", { model.sendKey(KeyCodes.getValue("left")) }, Modifier.weight(1f))
+                    HoldButton(Icons.AutoMirrored.Filled.ArrowBack, "Direction left", { onSendKey(KeyCodes.getValue("left")) }, Modifier.weight(1f))
                     Button(
-                        onClick = { model.sendKey(23) }, shape = CircleShape, modifier = Modifier.size(88.dp),
+                        onClick = { onSendKey(23) }, shape = CircleShape, modifier = Modifier.size(88.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = if (dark) Color(0xFF2E3139) else Color(0xFFE3E6EC), contentColor = MaterialTheme.colorScheme.onSurface),
                     ) { Text("OK", fontWeight = FontWeight.SemiBold) }
-                    HoldButton(Icons.AutoMirrored.Filled.ArrowForward, "Direction right", { model.sendKey(KeyCodes.getValue("right")) }, Modifier.weight(1f))
+                    HoldButton(Icons.AutoMirrored.Filled.ArrowForward, "Direction right", { onSendKey(KeyCodes.getValue("right")) }, Modifier.weight(1f))
                 }
                 Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
-                    Spacer(Modifier.weight(1f)); HoldButton(Icons.Default.ArrowDownward, "Direction down", { model.sendKey(KeyCodes.getValue("down")) }, Modifier.weight(1f)); Spacer(Modifier.weight(1f))
+                    Spacer(Modifier.weight(1f)); HoldButton(Icons.Default.ArrowDownward, "Direction down", { onSendKey(KeyCodes.getValue("down")) }, Modifier.weight(1f)); Spacer(Modifier.weight(1f))
                 }
             }
         }
         Surface(shape = CircleShape, color = MaterialTheme.colorScheme.surface, shadowElevation = 10.dp, modifier = Modifier.width(258.dp).height(64.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                HoldButton(Icons.AutoMirrored.Filled.VolumeDown, "Volume down", { model.sendKey(KeyCodes.getValue("voldown")) }, Modifier.weight(1f))
-                IconButton(onClick = { model.sendKey(KeyCodes.getValue("mute")) }, modifier = Modifier.weight(1f)) { Icon(Icons.AutoMirrored.Filled.VolumeOff, "Mute") }
-                HoldButton(Icons.AutoMirrored.Filled.VolumeUp, "Volume up", { model.sendKey(KeyCodes.getValue("volup")) }, Modifier.weight(1f))
+                HoldButton(Icons.AutoMirrored.Filled.VolumeDown, "Volume down", { onSendKey(KeyCodes.getValue("voldown")) }, Modifier.weight(1f))
+                IconButton(onClick = { onSendKey(KeyCodes.getValue("mute")) }, modifier = Modifier.weight(1f)) { Icon(Icons.AutoMirrored.Filled.VolumeOff, "Mute") }
+                HoldButton(Icons.AutoMirrored.Filled.VolumeUp, "Volume up", { onSendKey(KeyCodes.getValue("volup")) }, Modifier.weight(1f))
             }
+        }
+    }
+}
+
+@Composable
+internal fun AndroidTvActionGrid(
+    onSendKey: (Int) -> Unit,
+    keyboardShown: Boolean,
+    onToggleKeyboard: () -> Unit,
+    voiceMode: RockyMode,
+    onVoiceStart: () -> Unit,
+    onVoiceEnd: (Long) -> Unit,
+    onVoiceCancel: () -> Unit,
+) {
+    val actions = listOf(
+        RemoteAction("Back", Icons.AutoMirrored.Filled.ArrowBack, { onSendKey(KeyCodes.getValue("back")) }, true),
+        RemoteAction("Home", Icons.Default.Home, { onSendKey(KeyCodes.getValue("home")) }),
+        RemoteAction("Input", Icons.Default.SettingsInputHdmi, { onSendKey(KeyCodes.getValue("input")) }),
+        RemoteAction(if (keyboardShown) "Hide" else "Keyboard", Icons.Default.Keyboard, onToggleKeyboard),
+        RemoteAction("Power", Icons.Default.PowerSettingsNew, { onSendKey(android.view.KeyEvent.KEYCODE_POWER) }),
+        RemoteAction(when (voiceMode) {
+            RockyMode.LISTENING -> "Listening… tap to send"
+            RockyMode.RECORDING, RockyMode.STARTING -> "Listening…"
+            RockyMode.SENDING -> "Sending…"
+            RockyMode.CANCELLING -> "Stopping…"
+            RockyMode.IDLE -> "Mic · hold to talk"
+        }, Icons.Default.Mic, {}),
+    )
+    actions.chunked(3).forEach { row ->
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            row.forEach { action ->
+                if (action.icon == Icons.Default.Mic) VoiceHoldActionChip(
+                    label = action.label, onStart = onVoiceStart, onEnd = onVoiceEnd, onCancel = onVoiceCancel,
+                    modifier = Modifier.weight(1f),
+                )
+                else if (action.repeatWhileHeld) HoldActionChip(action, Modifier.weight(1f))
+                else OutlinedButton(onClick = action.onClick, modifier = Modifier.weight(1f).height(74.dp), contentPadding = PaddingValues(4.dp)) {
+                    ActionContent(action, null)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun VoiceHoldActionChip(
+    label: String,
+    onStart: () -> Unit,
+    onEnd: (Long) -> Unit,
+    onCancel: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val latestStart by rememberUpdatedState(onStart)
+    val latestEnd by rememberUpdatedState(onEnd)
+    val latestCancel by rememberUpdatedState(onCancel)
+    var pressed by remember { mutableStateOf(false) }
+    Surface(
+        modifier = modifier.height(74.dp).pointerInput(Unit) {
+            detectTapGestures(onPress = {
+                pressed = true
+                val startedAt = SystemClock.elapsedRealtime()
+                latestStart()
+                val released = tryAwaitRelease()
+                val duration = SystemClock.elapsedRealtime() - startedAt
+                if (released) latestEnd(duration) else latestCancel()
+                pressed = false
+            })
+        }.semantics { contentDescription = "Microphone, hold to talk"; role = Role.Button },
+        shape = RoundedCornerShape(18.dp),
+        color = if (pressed) MaterialTheme.colorScheme.surfaceVariant else Color.Transparent,
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+    ) {
+        Column(Modifier.fillMaxSize().padding(4.dp), horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center) {
+            Icon(Icons.Default.Mic, null, Modifier.size(20.dp))
+            Spacer(Modifier.height(4.dp))
+            Text(label, style = MaterialTheme.typography.labelMedium, maxLines = 1)
         }
     }
 }
@@ -178,14 +257,19 @@ private fun ActionContent(action: RemoteAction, state: RemoteUiState?) {
 
 @Composable
 internal fun KeyboardPanel(state: RemoteUiState, model: RemoteViewModel) {
+    KeyboardPanel(state.keyboardText, model::setKeyboardText, model::sendText)
+}
+
+@Composable
+internal fun KeyboardPanel(textValue: String, onTextChange: (String) -> Unit, onSend: () -> Unit) {
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 OutlinedTextField(
-                    value = state.keyboardText, onValueChange = model::setKeyboardText, modifier = Modifier.weight(1f),
+                    value = textValue, onValueChange = onTextChange, modifier = Modifier.weight(1f),
                     placeholder = { Text("Type for the TV") }, singleLine = true,
                 )
-                Button(onClick = model::sendText) { Text("Send") }
+                Button(onClick = onSend) { Text("Send") }
             }
             Text("Enter sends the text and confirms it on the TV.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = .6f))
         }

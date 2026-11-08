@@ -4,9 +4,9 @@ import android.Manifest
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Bundle
 import android.os.SystemClock
-import android.net.Uri
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -94,6 +94,7 @@ private fun RemoteApp(model: RemoteViewModel) {
     var wallpaperShown by remember { mutableStateOf(false) }
     var settingsOpen by remember { mutableStateOf(false) }
     var remoteShown by rememberSaveable { mutableStateOf(false) }
+    var otherRemotesShown by rememberSaveable { mutableStateOf(false) }
     val imageLoader = remember(context) {
         ImageLoader.Builder(context).components {
             add(SvgDecoder.Factory())
@@ -123,14 +124,23 @@ private fun RemoteApp(model: RemoteViewModel) {
         state.message?.let { snackbar.showSnackbar(it); model.clearMessage() }
     }
 
-    BackHandler(enabled = remoteShown) { remoteShown = false }
+    BackHandler(enabled = remoteShown || otherRemotesShown) {
+        if (remoteShown) remoteShown = false else otherRemotesShown = false
+    }
 
     MaterialTheme(colorScheme = colors) {
         Scaffold(
             containerColor = colors.background,
             snackbarHost = { SnackbarHost(snackbar, modifier = Modifier.navigationBarsPadding()) },
         ) { inset ->
-            if (remoteShown) {
+            if (otherRemotesShown) {
+                OtherRemotesScreen(
+                    onBack = { otherRemotesShown = false },
+                    darkTheme = state.darkTheme,
+                    onToggleTheme = { model.setDarkTheme(!state.darkTheme) },
+                    modifier = Modifier.fillMaxSize().padding(inset),
+                )
+            } else if (remoteShown) {
                 Column(
                     Modifier.fillMaxSize().padding(inset)
                         .verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 12.dp),
@@ -149,7 +159,7 @@ private fun RemoteApp(model: RemoteViewModel) {
                         onCancel = model::cancelRocky,
                     )
                     BoxWithConstraints(Modifier.fillMaxWidth()) {
-                        DirectionPad(model, state.darkTheme, if (maxWidth <= 318.dp) 230.dp else 260.dp)
+                        DirectionPad(model::sendKey, state.darkTheme, if (maxWidth <= 318.dp) 230.dp else 260.dp)
                     }
                     ActionGrid(state, model, onWallpaperClick = { wallpaperShown = true })
                     if (state.keyboardShown) KeyboardPanel(state, model)
@@ -172,6 +182,7 @@ private fun RemoteApp(model: RemoteViewModel) {
                         context.startActivity(Intent.createChooser(shareIntent, "Share my.home"))
                     },
                     onOpenRemote = { remoteShown = true },
+                    onOpenOtherRemotes = { otherRemotesShown = true },
                     onOpenService = { url ->
                         try {
                             context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))

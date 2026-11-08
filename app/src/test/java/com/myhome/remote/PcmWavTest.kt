@@ -24,6 +24,14 @@ class PcmWavTest {
     }
 
     @Test
+    fun convertsRecordedWavToAndroidTvVoiceSampleRate() {
+        val pcm16k = byteArrayOf(1, 0, 2, 0, 3, 0, 4, 0)
+        val wav = PcmWav.encode(pcm16k, 16_000)
+
+        assertTrue(wav16kToPcm8k(wav).contentEquals(byteArrayOf(1, 0, 3, 0)))
+    }
+
+    @Test
     fun appendWallpaperProgressCountsOnlyTheNewPhotos() {
         val status = WallpaperStatus(running = true, photos = 18, count = 10, base = 12, append = true)
 
